@@ -21,7 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "arm_math.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -46,6 +46,24 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 uint32_t QEIReadRaw;
+float position = 0;
+int8_t direction = 0;
+float Kp = 1.3;
+float Ki = 0;
+float Kd = 0;
+int32_t setpoint = 0;
+int32_t pre_e ;
+int32_t e;
+float u = 0;
+float PWM_motor = 0;
+float Delta_t = 0.01;
+float Delta_By_dt;
+float e_integral;
+
+//arm_pid_instance_f32 PID = {0};
+//float position =0;
+//float setposition =0;
+//float Vfeedback =0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -95,7 +113,16 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
+  //PID.Kp =0.1;
+  //PID.Ki =0.1;
+  //PID.Kd =0.1;
+  //arm_pid_init_f32(&PID,0);
+
   HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_1|TIM_CHANNEL_2);
+  HAL_TIM_Base_Start(&htim1);
+
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -105,14 +132,34 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  QEIReadRaw = __HAL_TIM_GET_COUNTER(&htim2);
-	  /*static uint64_t timestamp = 0;
-	  if(HAL_GetTick()>timestamp)
-	  {
-		  timestamp = HAL_GetTick + 500;
-		  QEIReadRaw = __HAL_TIM_GET_COUNTER(&htim3);
-		  printf("Position = %d\n",QEIReadRaw);
-	  }*/
+	   static uint64_t timestamp = 0;
+	  if (HAL_GetTick() > timestamp) // 100 Hz
+	    {
+	     QEIReadRaw = __HAL_TIM_GET_COUNTER(&htim2);
+	     position = (QEIReadRaw*36000)/307200;
+	     e = setpoint - position  ;
+	     Delta_By_dt = (e-pre_e)/Delta_t ;
+	     e_integral = e_integral+(e*Delta_t);
+	     u = (Kp * e)+(Ki*e_integral)+(Kd*Delta_By_dt) ;
+	     PWM_motor = fabs(u);
+
+
+	     if (u > 0){direction = 1;}
+	     if (u < 0){direction = -1;}
+	     if (direction == -1)
+	     {
+	      __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, PWM_motor);
+	      __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, 0);
+	     }
+	     else if (direction == 1)
+	     {
+	      __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 0);
+	      __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, PWM_motor);
+	     }
+	    }
+	    pre_e = e;
+
+
 
 
   }
@@ -219,6 +266,10 @@ static void MX_TIM1_Init(void)
   sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
   sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
   if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
   {
     Error_Handler();
   }
