@@ -56,7 +56,7 @@ int32_t pre_e ;
 int32_t e;
 float u = 0;
 float PWM_motor = 0;
-float Delta_t = 0.01;
+float Delta_t = 1;
 float Delta_By_dt;
 float e_integral;
 
@@ -132,16 +132,12 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	   static uint64_t timestamp = 0;
-	  if (HAL_GetTick() > timestamp) // 100 Hz
-	    {
-		 timestamp = HAL_GetTick() + 10;
 	     QEIReadRaw = __HAL_TIM_GET_COUNTER(&htim2);
 	     position = (QEIReadRaw*36000)/307200;
-	     e = setpoint - position  ;
-	     Delta_By_dt = (e-pre_e)/Delta_t ;
-	     e_integral = e_integral+(e*Delta_t);
-	     u = (Kp * e)+(Ki*e_integral)+(Kd*Delta_By_dt) ;
+	     e = setpoint - position  ; // error
+	     Delta_By_dt = (e-pre_e)/Delta_t ;  //KD
+	     e_integral = e_integral+(e*Delta_t); //KI
+	     u = (Kp * e)+(Ki*e_integral)+(Kd*Delta_By_dt) ; //KP //Process
 	     PWM_motor = fabs(u);
 
 
@@ -157,7 +153,7 @@ int main(void)
 	      __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 0);
 	      __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, PWM_motor);
 	     }
-	    }
+
 	    pre_e = e;
 
 
