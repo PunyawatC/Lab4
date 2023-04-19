@@ -135,6 +135,7 @@ int main(void)
 	   static uint64_t timestamp = 0;
 	  if (HAL_GetTick() > timestamp) // 100 Hz
 	    {
+		 timestamp = HAL_GetTick() + 10;
 	     QEIReadRaw = __HAL_TIM_GET_COUNTER(&htim2);
 	     position = (QEIReadRaw*36000)/307200;
 	     e = setpoint - position  ;
